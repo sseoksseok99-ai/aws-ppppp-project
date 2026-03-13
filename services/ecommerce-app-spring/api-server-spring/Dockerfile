@@ -12,6 +12,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 COPY --from=build /build/target/api-server-spring-1.0.0.jar /app/app.jar
+COPY data ./data
 
 RUN mkdir -p /app/data /app/uploads
 
