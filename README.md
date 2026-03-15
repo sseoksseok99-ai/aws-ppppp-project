@@ -9,6 +9,10 @@ my-devsecops-platform/
 │       ├── build-and-push.yml  # Docker 이미지 빌드 및 ECR 푸시
 │       ├── terraform-plan.yml  # Terraform 검증 및 실행 계획 확인
 │       └── deploy.yml          # 인프라 및 서비스 배포
+|
+├── controlplane/               # AI DevSecOps 관제 플랫폼
+│   ├── web/                    # 관제 대시보드
+│   └── api/                    # 관제 대시보드 모니터링 프론트엔드
 │
 ├── services/                   # 실제 배포 대상 애플리케이션
 │   ├── api-node/               # Node.js 백엔드 서비스
