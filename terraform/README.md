@@ -195,7 +195,7 @@ terraform/envs/prod/  ← 준비만 되어 있음 (아직 apply 안 함)
 
 ### GitHub Actions에서 어떻게 환경을 구분하는가
 
-현재 `build-push-ecr.yml`은 dev 환경 기준으로 작성되어 있습니다. prod 배포를 추가하려면 워크플로우에서 트리거 브랜치나 환경 변수로 분기 처리가 필요합니다. 예를 들어:
+현재 git actions는 dev 환경 기준으로 작성되어 있습니다. prod 배포를 추가하려면 워크플로우에서 트리거 브랜치나 환경 변수로 분기 처리가 필요합니다. 예를 들어:
 
 ```yaml
 # 예시: main → dev 배포, release → prod 배포
