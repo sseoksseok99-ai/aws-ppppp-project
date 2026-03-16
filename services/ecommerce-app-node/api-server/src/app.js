@@ -15,6 +15,8 @@ const { initDatabase } = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const promClient = require('prom-client');
+
 // ========================================
 // 미들웨어 설정
 // ========================================
@@ -34,6 +36,33 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // S3 이미지 URL → Pre-signed URL 변환 미들웨어
 const presignUrlsMiddleware = require('./middleware/presignUrls');
 app.use('/api', presignUrlsMiddleware);
+
+promClient.collectDefaultMetrics();
+
+const httpRequestCounter = new promClient.Counter({
+name: 'http_requests_total',
+help: '총 HTTP 요청 횟수 및 상태 코드',
+labelNames: ['method', 'route', 'status_code']
+});
+
+const httpRequestDurationMicroseconds = new promClient.Histogram({
+name: 'http_request_duration_ms',
+help: 'HTTP 응답 지연 시간 (밀리초)',
+labelNames: ['method', 'route', 'status_code'],
+buckets: [10, 50, 100, 250, 500, 1000, 5000]
+});
+
+app.use((req, res, next) => {
+const start = Date.now();
+
+res.on('finish', () => {
+const duration = Date.now() - start;
+httpRequestCounter.labels(req.method, req.path, res.statusCode).inc();
+httpRequestDurationMicroseconds.labels(req.method, req.path, res.statusCode).observe(duration);
+});
+
+next();
+});
 
 // ========================================
 // 라우트 설정
@@ -87,6 +116,11 @@ app.get('/api/config', (req, res) => {
     reviewStore: process.env.REVIEW_STORE || 'local',
     dbType: process.env.DB_TYPE || 'sqlite',
   });
+});
+
+app.get('/metrics', async (req, res) => {
+res.set('Content-Type', promClient.register.contentType);
+res.end(await promClient.register.metrics());
 });
 
 // ========================================
