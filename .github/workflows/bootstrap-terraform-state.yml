@@ -62,9 +62,10 @@ jobs:
           fi
 
           PREFIX="${PROJECT_NAME}-tfstate-"
-          MATCH_COUNT=$(aws s3api list-buckets \
-            --query "length(Buckets[?starts_with(Name, '${PREFIX}')])" \
-            --output text)
+          mapfile -t BUCKETS < <(aws s3api list-buckets \
+            --query "Buckets[?starts_with(Name, '${PREFIX}')].Name" \
+            --output text | tr '\t' '\n' | grep -v '^$')
+          MATCH_COUNT=${#BUCKETS[@]}
 
           if [ "$MATCH_COUNT" = "0" ]; then
             echo "bucket_name=" >> "$GITHUB_OUTPUT"
@@ -72,9 +73,26 @@ jobs:
             exit 0
           fi
 
-          LATEST_BUCKET=$(aws s3api list-buckets \
-            --query "reverse(sort_by(Buckets[?starts_with(Name, '${PREFIX}')], &CreationDate))[0].Name" \
-            --output text)
+          STATEFUL_BUCKETS=()
+          for BUCKET in "${BUCKETS[@]}"; do
+            LAST_MODIFIED=$(aws s3api head-object \
+              --bucket "$BUCKET" \
+              --key "dev/terraform.tfstate" \
+              --query 'LastModified' \
+              --output text 2>/dev/null || true)
+
+            if [ -n "$LAST_MODIFIED" ] && [ "$LAST_MODIFIED" != "None" ]; then
+              STATEFUL_BUCKETS+=("${LAST_MODIFIED}|${BUCKET}")
+            fi
+          done
+
+          if [ "${#STATEFUL_BUCKETS[@]}" -gt 0 ]; then
+            LATEST_BUCKET=$(printf '%s\n' "${STATEFUL_BUCKETS[@]}" | sort | tail -n 1 | cut -d'|' -f2)
+          else
+            LATEST_BUCKET=$(aws s3api list-buckets \
+              --query "reverse(sort_by(Buckets[?starts_with(Name, '${PREFIX}')], &CreationDate))[0].Name" \
+              --output text)
+          fi
 
           if [ "$MATCH_COUNT" != "1" ]; then
             echo "Found $MATCH_COUNT existing Terraform state buckets with prefix '${PREFIX}'. Reusing the most recent bucket: $LATEST_BUCKET"

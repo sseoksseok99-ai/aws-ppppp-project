@@ -76,9 +76,26 @@ jobs:
           fi
 
           if [ "${#BUCKETS[@]}" -gt 1 ]; then
-            LATEST_BUCKET=$(aws s3api list-buckets \
-              --query "reverse(sort_by(Buckets[?starts_with(Name, '${PREFIX}')], &CreationDate))[0].Name" \
-              --output text)
+            STATEFUL_BUCKETS=()
+            for BUCKET in "${BUCKETS[@]}"; do
+              LAST_MODIFIED=$(aws s3api head-object \
+                --bucket "$BUCKET" \
+                --key "dev/terraform.tfstate" \
+                --query 'LastModified' \
+                --output text 2>/dev/null || true)
+
+              if [ -n "$LAST_MODIFIED" ] && [ "$LAST_MODIFIED" != "None" ]; then
+                STATEFUL_BUCKETS+=("${LAST_MODIFIED}|${BUCKET}")
+              fi
+            done
+
+            if [ "${#STATEFUL_BUCKETS[@]}" -gt 0 ]; then
+              LATEST_BUCKET=$(printf '%s\n' "${STATEFUL_BUCKETS[@]}" | sort | tail -n 1 | cut -d'|' -f2)
+            else
+              LATEST_BUCKET=$(aws s3api list-buckets \
+                --query "reverse(sort_by(Buckets[?starts_with(Name, '${PREFIX}')], &CreationDate))[0].Name" \
+                --output text)
+            fi
             echo "Multiple Terraform state buckets found: ${BUCKETS[*]}"
             echo "Reusing the most recent bucket: $LATEST_BUCKET"
             echo "bucket_name=$LATEST_BUCKET" >> "$GITHUB_OUTPUT"
@@ -177,9 +194,26 @@ jobs:
           fi
 
           if [ "${#BUCKETS[@]}" -gt 1 ]; then
-            LATEST_BUCKET=$(aws s3api list-buckets \
-              --query "reverse(sort_by(Buckets[?starts_with(Name, '${PREFIX}')], &CreationDate))[0].Name" \
-              --output text)
+            STATEFUL_BUCKETS=()
+            for BUCKET in "${BUCKETS[@]}"; do
+              LAST_MODIFIED=$(aws s3api head-object \
+                --bucket "$BUCKET" \
+                --key "dev/terraform.tfstate" \
+                --query 'LastModified' \
+                --output text 2>/dev/null || true)
+
+              if [ -n "$LAST_MODIFIED" ] && [ "$LAST_MODIFIED" != "None" ]; then
+                STATEFUL_BUCKETS+=("${LAST_MODIFIED}|${BUCKET}")
+              fi
+            done
+
+            if [ "${#STATEFUL_BUCKETS[@]}" -gt 0 ]; then
+              LATEST_BUCKET=$(printf '%s\n' "${STATEFUL_BUCKETS[@]}" | sort | tail -n 1 | cut -d'|' -f2)
+            else
+              LATEST_BUCKET=$(aws s3api list-buckets \
+                --query "reverse(sort_by(Buckets[?starts_with(Name, '${PREFIX}')], &CreationDate))[0].Name" \
+                --output text)
+            fi
             echo "Multiple Terraform state buckets found: ${BUCKETS[*]}"
             echo "Reusing the most recent bucket: $LATEST_BUCKET"
             echo "bucket_name=$LATEST_BUCKET" >> "$GITHUB_OUTPUT"
