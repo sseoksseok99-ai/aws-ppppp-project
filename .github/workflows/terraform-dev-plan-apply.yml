@@ -241,6 +241,36 @@ jobs:
       - name: Terraform Init
         run: terraform init -backend-config=backend.hcl
 
+      - name: Import orphan IAM roles before apply
+        shell: bash
+        run: |
+          NAME_PREFIX=$(sed -n 's/^name_prefix[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' terraform.tfvars | head -n 1)
+
+          if [ -z "$NAME_PREFIX" ]; then
+            echo "Could not read name_prefix from terraform.tfvars"
+            exit 1
+          fi
+
+          import_role_if_needed() {
+            local tf_address="$1"
+            local role_name="$2"
+
+            if terraform state list 2>/dev/null | grep -qx "$tf_address"; then
+              echo "IAM role is already tracked in Terraform state: $role_name"
+              return 0
+            fi
+
+            if aws iam get-role --role-name "$role_name" >/dev/null 2>&1; then
+              echo "Found existing IAM role '$role_name'. Importing into Terraform state."
+              terraform import "$tf_address" "$role_name"
+            else
+              echo "No pre-existing IAM role found for '$role_name'."
+            fi
+          }
+
+          import_role_if_needed "module.security.aws_iam_role.ecs_task_execution" "${NAME_PREFIX}-ecs-task-execution-role"
+          import_role_if_needed "module.security.aws_iam_role.ecs_task" "${NAME_PREFIX}-ecs-task-role"
+
       - name: Clean orphan EFS before apply
         shell: bash
         run: |
