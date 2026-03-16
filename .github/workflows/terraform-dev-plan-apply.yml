@@ -11,6 +11,10 @@ on:
       - ".github/workflows/**"
   workflow_dispatch:
 
+concurrency:
+  group: terraform-dev-state
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
@@ -122,7 +126,7 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -out=tfplan
+        run: terraform plan -lock-timeout=10m -no-color -out=tfplan
 
   terraform-apply:
     name: Terraform Apply
@@ -203,4 +207,4 @@ jobs:
         run: terraform init -backend-config=backend.hcl
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve -no-color
+        run: terraform apply -lock-timeout=10m -auto-approve -no-color
